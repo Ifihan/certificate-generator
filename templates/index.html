@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICAIR Certificate Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9rem;
+        }
+
+        .info-box {
+            background: #f7f7f7;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 5px;
+        }
+
+        .info-box p {
+            color: #555;
+            line-height: 1.6;
+            margin: 5px 0;
+        }
+
+        .generate-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-weight: 600;
+        }
+
+        .generate-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .generate-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.loading {
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #90caf9;
+        }
+
+        .status.success {
+            background: #e8f5e9;
+            color: #388e3c;
+            border: 1px solid #81c784;
+        }
+
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #e57373;
+        }
+
+        .results {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .result-item {
+            background: #f9f9f9;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .result-item.error {
+            border-left-color: #c62828;
+        }
+
+        .result-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .result-url {
+            font-size: 0.85rem;
+            color: #666;
+            word-break: break-all;
+        }
+
+        .result-url a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .result-url a:hover {
+            text-decoration: underline;
+        }
+
+        .download-csv-btn {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 15px;
+            width: 100%;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+
+        .download-csv-btn:hover {
+            background: #45a049;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ICAIR Certificate Generator</h1>
+        <p class="subtitle">Generate participation certificates for all attendees</p>
+
+        <div class="info-box">
+            <p><strong>How it works:</strong></p>
+            <p>1. Click the button below to generate certificates</p>
+            <p>2. Each certificate will be uploaded and you'll get a link</p>
+            <p>3. Download the CSV with all names and links</p>
+        </div>
+
+        <button class="generate-btn" id="generateBtn" onclick="generateCertificates()">
+            Generate All Certificates
+        </button>
+
+        <div class="status" id="status"></div>
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        async function generateCertificates() {
+            const btn = document.getElementById('generateBtn');
+            const status = document.getElementById('status');
+            const results = document.getElementById('results');
+
+            // Disable button and show loading
+            btn.disabled = true;
+            status.className = 'status show loading';
+            status.innerHTML = '<div class="spinner"></div>Generating certificates... This may take a few minutes.';
+            results.innerHTML = '';
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    status.className = 'status show success';
+                    status.innerHTML = `<strong>Success!</strong> Generated ${data.results.length} certificates.`;
+
+                    // Display results
+                    let resultsHtml = '';
+                    data.results.forEach(result => {
+                        const itemClass = result.status === 'error' ? 'result-item error' : 'result-item';
+                        resultsHtml += `
+                            <div class="${itemClass}">
+                                <div class="result-name">${result.name}</div>
+                                <div class="result-url">
+                                    ${result.status === 'error'
+                                        ? `<span style="color: #c62828;">Error: ${result.error}</span>`
+                                        : `<a href="${result.url}" target="_blank">${result.url}</a>`
+                                    }
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    resultsHtml += '<button class="download-csv-btn" onclick="downloadCSV()">Download CSV with Links</button>';
+                    results.innerHTML = resultsHtml;
+                } else {
+                    throw new Error(data.error || 'Unknown error occurred');
+                }
+            } catch (error) {
+                status.className = 'status show error';
+                status.innerHTML = `<strong>Error:</strong> ${error.message}`;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function downloadCSV() {
+            window.location.href = '/download-csv';
+        }
+    </script>
+</body>
+</html>
