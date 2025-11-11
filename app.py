@@ -1,106 +1,160 @@
 import os
 import csv
-from flask import Flask, render_template, jsonify, send_file
+import hashlib
+from flask import Flask, render_template, jsonify, send_file, request
 from certificate_generator import CertificateGenerator
 from pdf_uploader import PDFUploader
-from dotenv import load_dotenv
-
-load_dotenv()
+import config
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = config.MAX_UPLOAD_SIZE
 
-CERTIFICATE_IMAGE = 'certificate.jpg'
-NAMES_CSV = 'names.csv'
-OUTPUT_DIR = 'output'
-GENERATED_CSV = 'generated_certificates.csv'
+def get_csv_hash(filepath):
+    with open(filepath, 'rb') as f:
+        return hashlib.md5(f.read()).hexdigest()
 
-UPLOAD_SERVICE = os.getenv('UPLOAD_SERVICE', 'cloudinary')
+def read_csv_data(filepath):
+    with open(filepath, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        fieldnames = reader.fieldnames
+        if config.NAME_COLUMN not in fieldnames:
+            raise ValueError(f"CSV must contain '{config.NAME_COLUMN}' column")
+        rows = [row for row in reader if row.get(config.NAME_COLUMN, '').strip()]
+    return rows, fieldnames
 
-CLOUDINARY_CONFIG = {
-    'cloud_name': os.getenv('CLOUDINARY_CLOUD_NAME'),
-    'api_key': os.getenv('CLOUDINARY_API_KEY'),
-    'api_secret': os.getenv('CLOUDINARY_API_SECRET')
-}
+def read_generated_csv():
+    """Read existing generated CSV and return processed names, results, and CSV hash"""
+    if not os.path.exists(config.GENERATED_CSV):
+        return set(), [], None
 
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+    with open(config.GENERATED_CSV, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        results = list(reader)
+        processed = {r[config.NAME_COLUMN] for r in results if config.NAME_COLUMN in r}
+        csv_hash = results[0].get('_csv_hash') if results else None
+    return processed, results, csv_hash
+
+def append_to_generated_csv(result, fieldnames, csv_hash):
+    """Append a single result to generated CSV (creates file if doesn't exist)"""
+    file_exists = os.path.exists(config.GENERATED_CSV)
+    output_fields = ['_csv_hash'] + list(dict.fromkeys(list(fieldnames) + ['url', 'status']))
+
+    with open(config.GENERATED_CSV, 'a', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=output_fields)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow({**result, '_csv_hash': csv_hash})
 
 @app.route('/')
 def index():
-    """Render the main page"""
     return render_template('index.html')
 
-@app.route('/generate', methods=['POST'])
-def generate_certificates():
-    """Generate all certificates and upload them"""
+@app.route('/upload-csv', methods=['POST'])
+def upload_csv():
     try:
-        names = []
-        with open(NAMES_CSV, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                names.append(row['name'].strip())
+        if 'file' not in request.files or not request.files['file'].filename:
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
 
-        generator = CertificateGenerator(CERTIFICATE_IMAGE, OUTPUT_DIR)
+        file = request.files['file']
+        if not config.allowed_file(file.filename):
+            return jsonify({'success': False, 'error': 'Invalid file type'}), 400
 
-        if UPLOAD_SERVICE == 'cloudinary':
-            uploader = PDFUploader(service='cloudinary', cloudinary_config=CLOUDINARY_CONFIG)
-        else:
-            uploader = PDFUploader(service=UPLOAD_SERVICE)
+        filepath = os.path.join(config.UPLOAD_DIR, 'current.csv')
+        file.save(filepath)
 
-        results = []
-        total = len(names)
+        try:
+            rows, fieldnames = read_csv_data(filepath)
+        except ValueError as e:
+            os.remove(filepath)
+            return jsonify({'success': False, 'error': str(e)}), 400
 
-        for index, name in enumerate(names, 1):
-            try:
-                pdf_path = generator.generate_certificate(name)
-                url = uploader.upload(pdf_path, name)
-
-                results.append({
-                    'name': name,
-                    'url': url,
-                    'status': 'success'
-                })
-
-                print(f"Processed {index}/{total}: {name} -> {url}")
-
-            except Exception as e:
-                results.append({
-                    'name': name,
-                    'url': '',
-                    'status': 'error',
-                    'error': str(e)
-                })
-                print(f"Error processing {name}: {e}")
-
-        with open(GENERATED_CSV, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=['name', 'url', 'status'])
-            writer.writeheader()
-            for result in results:
-                writer.writerow({
-                    'name': result['name'],
-                    'url': result['url'],
-                    'status': result['status']
-                })
+        csv_hash = get_csv_hash(filepath)
+        processed, _, existing_hash = read_generated_csv()
+        is_new_csv = existing_hash and existing_hash != csv_hash
 
         return jsonify({
             'success': True,
-            'message': f'Generated {len(results)} certificates',
-            'results': results,
-            'csv_file': GENERATED_CSV
+            'message': f'CSV uploaded with {len(rows)} entries',
+            'total_entries': len(rows),
+            'is_new_csv': is_new_csv,
+            'previous_progress': len(processed) if is_new_csv else 0
         })
-
     except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/check-progress')
+def check_progress():
+    processed, results, _ = read_generated_csv()
+    has_progress = len(processed) > 0 and os.path.exists(
+        os.path.join(config.UPLOAD_DIR, 'current.csv')
+    )
+    return jsonify({
+        'has_progress': has_progress,
+        'processed_count': len(processed),
+        'results': results
+    })
+
+@app.route('/reset-progress', methods=['POST'])
+def reset_progress():
+    try:
+        if os.path.exists(config.GENERATED_CSV):
+            os.remove(config.GENERATED_CSV)
+        return jsonify({'success': True, 'message': 'Progress reset'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/generate', methods=['POST'])
+def generate_certificates():
+    try:
+        csv_path = os.path.join(config.UPLOAD_DIR, 'current.csv')
+        if not os.path.exists(csv_path):
+            return jsonify({'success': False, 'error': 'No CSV uploaded'}), 400
+
+        rows, fieldnames = read_csv_data(csv_path)
+        csv_hash = get_csv_hash(csv_path)
+        processed_names, all_results, existing_hash = read_generated_csv()
+
+        if existing_hash and existing_hash != csv_hash:
+            return jsonify({'success': False, 'error': 'CSV changed, reset progress'}), 400
+
+        generator = CertificateGenerator()
+        uploader = PDFUploader(
+            service=config.UPLOAD_SERVICE,
+            cloudinary_config=config.get_cloudinary_config()
+        ) if config.UPLOAD_SERVICE == 'cloudinary' else PDFUploader(service=config.UPLOAD_SERVICE)
+
+        for row in rows:
+            name = row[config.NAME_COLUMN].strip()
+            if name in processed_names:
+                continue
+
+            try:
+                pdf_path = generator.generate_certificate(name)
+                url = uploader.upload(pdf_path, name)
+                result = {**row, 'url': url, 'status': 'success'}
+                print(f"✓ {name} -> {url}")
+            except Exception as e:
+                result = {**row, 'url': '', 'status': 'error', 'error': str(e)}
+                print(f"✗ {name}: {e}")
+
+            append_to_generated_csv(result, fieldnames, csv_hash)
+            all_results.append(result)
+            processed_names.add(name)
+
         return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+            'success': True,
+            'message': f'Generated {len(all_results)} certificates',
+            'results': all_results,
+            'completed': len(processed_names) == len(rows)
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/download-csv')
 def download_csv():
-    """Download the generated CSV file"""
-    if os.path.exists(GENERATED_CSV):
-        return send_file(GENERATED_CSV, as_attachment=True)
-    else:
-        return jsonify({'error': 'CSV file not found'}), 404
+    if not os.path.exists(config.GENERATED_CSV):
+        return jsonify({'error': 'CSV not found'}), 404
+    return send_file(config.GENERATED_CSV, as_attachment=True, download_name='certificates.csv')
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=config.DEBUG_MODE, port=config.PORT, host=config.HOST)

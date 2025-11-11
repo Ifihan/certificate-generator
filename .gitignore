@@ -8,6 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+venv/
+env/
 
 # Environment variables (contains API secrets!)
 .env
@@ -16,11 +18,24 @@ wheels/
 output/
 generated_certificates.csv
 
+# Uploaded CSVs
+uploads/
+*.csv
+!sample_template.csv
+
 # macOS
 .DS_Store
 
+# Sample/test files
 sample.pdf
 
+# IDE
 .claude/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-names.csv
+# Logs
+*.log
