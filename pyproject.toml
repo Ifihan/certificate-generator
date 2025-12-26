@@ -1,7 +1,7 @@
 [project]
-name = "icair-certificate"
+name = "certificate-generator"
 version = "0.1.0"
-description = "Add your description here"
+description = "A customizable certificate generator that creates personalized certificates from CSV data"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
