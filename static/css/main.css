@@ -86,6 +86,53 @@ input[type="file"] {
     display: none;
 }
 
+/* Drop Zone */
+.drop-zone {
+    border: 2px dashed #d1d5db;
+    border-radius: 12px;
+    padding: 32px 24px;
+    background: #fafafa;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.drop-zone:hover {
+    border-color: #9ca3af;
+    background: #f5f5f5;
+}
+
+.drop-zone.drag-over {
+    border-color: #1a1a1a;
+    background: #f0f0f0;
+    border-style: solid;
+}
+
+.drop-icon {
+    width: 48px;
+    height: 48px;
+    stroke: #9ca3af;
+    stroke-width: 1.5;
+    fill: none;
+    margin-bottom: 16px;
+}
+
+.drop-zone.drag-over .drop-icon {
+    stroke: #1a1a1a;
+}
+
+.drop-text {
+    color: #4b5563;
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.drop-text-or {
+    color: #9ca3af;
+    font-size: 0.875rem;
+    margin-bottom: 16px;
+}
+
 .upload-label {
     display: inline-flex;
     align-items: center;

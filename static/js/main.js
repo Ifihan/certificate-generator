@@ -460,9 +460,64 @@ function downloadCSV() {
     window.location.href = '/download-csv';
 }
 
+// Setup drag and drop
+function setupDragAndDrop() {
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('csvFile');
+
+    // Prevent default drag behaviors on the whole document
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        document.body.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    });
+
+    // Highlight drop zone when dragging over it
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.classList.add('drag-over');
+        });
+    });
+
+    // Remove highlight when leaving or dropping
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.classList.remove('drag-over');
+        });
+    });
+
+    // Handle dropped files
+    dropZone.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.name.endsWith('.csv')) {
+                // Create a new FileList-like object and trigger handleFileSelect
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+                handleFileSelect({ target: fileInput });
+            } else {
+                const status = document.getElementById('status');
+                status.className = 'status show error';
+                status.innerHTML = '<strong>Error:</strong> Please upload a CSV file';
+            }
+        }
+    });
+
+    // Make the whole drop zone clickable
+    dropZone.addEventListener('click', (e) => {
+        // Don't trigger if clicking on the label or button inside
+        if (e.target.closest('.upload-label')) return;
+        fileInput.click();
+    });
+}
+
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
     checkExistingProgress();
+    setupDragAndDrop();
 });
 
 // Abort active generation on page unload

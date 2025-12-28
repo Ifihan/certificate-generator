@@ -20,12 +20,19 @@
         </div>
 
         <div class="upload-section">
-            <label for="csvFile" class="upload-label">
-                <svg class="icon" viewBox="0 0 24 24">
+            <div id="dropZone" class="drop-zone">
+                <svg class="drop-icon" viewBox="0 0 24 24">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
                 </svg>
-                Choose CSV File
-            </label>
+                <p class="drop-text">Drag & drop your CSV file here</p>
+                <p class="drop-text-or">or</p>
+                <label for="csvFile" class="upload-label">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                    </svg>
+                    Browse Files
+                </label>
+            </div>
             <input type="file" id="csvFile" accept=".csv" onchange="handleFileSelect(event)">
             <div id="fileInfo" class="file-info">No file selected</div>
         </div>
