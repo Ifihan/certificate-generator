@@ -19,20 +19,14 @@
             4. Generation progress is saved automatically
         </div>
 
-        <div id="progressInfo" class="progress-info hidden">
-            <strong>Previous session detected</strong><br>
-            You have <span id="progressCount">0</span> certificates already generated.<br>
-            Click "Continue" to resume or upload new CSV to start fresh.
-        </div>
-
         <div class="upload-section">
-            <input type="file" id="csvFile" accept=".csv" onchange="handleFileSelect(event)" style="display: none;">
-            <label for="csvFile" class="upload-label" style="cursor: pointer;">
+            <label for="csvFile" class="upload-label">
                 <svg class="icon" viewBox="0 0 24 24">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
                 </svg>
                 Choose CSV File
             </label>
+            <input type="file" id="csvFile" accept=".csv" onchange="handleFileSelect(event)">
             <div id="fileInfo" class="file-info">No file selected</div>
         </div>
 

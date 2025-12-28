@@ -7,30 +7,36 @@ let isComplete = false;
 async function checkExistingProgress() {
     try {
         const response = await fetch('/check-progress');
-        const { has_progress, processed_count, results, has_csv, csv_matches, is_complete } = await response.json();
+        const { has_progress, processed_count, results, has_csv, csv_matches, is_complete, is_generating } = await response.json();
 
         if (has_progress) {
             hasProgress = true;
-            document.getElementById('progressInfo').classList.remove('hidden');
-            document.getElementById('progressCount').textContent = processed_count;
 
             if (results?.length) {
                 displayResults(results, false);
                 isComplete = is_complete;
             }
 
-            // Show and configure generate/continue buttons
             document.getElementById('btnGroup').classList.remove('hidden');
             const generateBtn = document.getElementById('generateBtn');
             const continueBtn = document.getElementById('continueBtn');
+            const status = document.getElementById('status');
 
-            if (isComplete) {
+            if (is_generating) {
+                generateBtn.classList.add('hidden');
+                continueBtn.classList.remove('hidden');
+                continueBtn.disabled = true;
+                status.className = 'status show loading';
+                status.innerHTML = `<div class="spinner"></div>Generation in progress... ${processed_count} certificate(s) generated so far.`;
+                document.getElementById('resetBtn').classList.add('hidden');
+
+                startPollingForProgress(processed_count);
+            } else if (isComplete) {
                 generateBtn.classList.remove('hidden');
                 continueBtn.classList.add('hidden');
                 generateBtn.disabled = false;
                 document.getElementById('resetBtn').classList.remove('hidden');
             } else if (has_csv && csv_matches) {
-                // Show Continue button when there's progress and CSV matches
                 generateBtn.classList.add('hidden');
                 continueBtn.classList.remove('hidden');
                 continueBtn.disabled = false;
@@ -43,23 +49,19 @@ async function checkExistingProgress() {
                 generateBtn.disabled = false;
                 document.getElementById('resetBtn').classList.remove('hidden');
             } else {
-                // No CSV available - show Continue button but disabled
                 generateBtn.classList.add('hidden');
                 continueBtn.classList.remove('hidden');
                 continueBtn.disabled = true;
                 document.getElementById('resetBtn').classList.remove('hidden');
             }
         } else {
-            // NO PROGRESS - Clear any stale data from DOM
             hasProgress = false;
             isComplete = false;
             displayedNames.clear();
-            document.getElementById('progressInfo').classList.add('hidden');
             document.getElementById('results').innerHTML = '';
             document.getElementById('btnGroup').classList.add('hidden');
             document.getElementById('resetBtn').classList.add('hidden');
 
-            // Clear any status messages
             const status = document.getElementById('status');
             status.className = 'status';
             status.innerHTML = '';
@@ -67,6 +69,37 @@ async function checkExistingProgress() {
     } catch (e) {
         console.error('Progress check failed:', e);
     }
+}
+
+function startPollingForProgress(initialCount = 0) {
+    let currentCount = initialCount;
+    const status = document.getElementById('status');
+
+    const pollInterval = setInterval(async () => {
+        try {
+            const response = await fetch('/check-progress');
+            const data = await response.json();
+
+            if (!data.is_generating) {
+                clearInterval(pollInterval);
+                location.reload();
+            }
+
+            if (data.results && data.results.length > 0) {
+                currentCount = data.processed_count;
+                status.innerHTML = `<div class="spinner"></div>Generation in progress... ${currentCount} certificate(s) generated so far.`;
+
+                for (const result of data.results) {
+                    if (!displayedNames.has(result.name)) {
+                        appendResultWithAnimation(result);
+                        displayedNames.add(result.name);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Progress poll error:', e);
+        }
+    }, 500);
 }
 
 // Handle file upload
@@ -236,7 +269,6 @@ async function generateCertificates() {
                 generateBtn.classList.remove('hidden');
                 continueBtn.classList.add('hidden');
                 generateBtn.disabled = false;
-                document.getElementById('progressInfo').classList.add('hidden');
                 addDownloadButton();
             } else {
                 hasProgress = true;
@@ -365,7 +397,6 @@ async function resetProgress() {
             // Clear UI
             status.className = 'status show success';
             status.innerHTML = '✓ Progress cleared. Upload a CSV to start fresh.';
-            document.getElementById('progressInfo').classList.add('hidden');
             document.getElementById('results').innerHTML = '';
             document.getElementById('btnGroup').classList.add('hidden');
             document.getElementById('resetBtn').classList.add('hidden');

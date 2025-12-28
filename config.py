@@ -29,6 +29,7 @@ CLOUDINARY_CONFIG = {
     "api_key": os.getenv("CLOUDINARY_API_KEY"),
     "api_secret": os.getenv("CLOUDINARY_API_SECRET"),
 }
+CLOUDINARY_FOLDER = os.getenv("CLOUDINARY_FOLDER", "demo")
 
 # App Settings
 DEBUG_MODE = os.getenv("DEBUG", "True").lower() == "true"

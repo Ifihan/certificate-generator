@@ -1,6 +1,7 @@
 import os
 import csv
 import hashlib
+from threading import Lock
 from flask import Flask, render_template, jsonify, send_file, request
 from certificate_generator import CertificateGenerator
 from pdf_uploader import PDFUploader
@@ -8,6 +9,9 @@ import config
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = config.MAX_UPLOAD_SIZE
+
+generation_lock = Lock()
+is_generating = False
 
 
 def get_csv_hash(filepath):
@@ -103,10 +107,10 @@ def upload_csv():
 
 @app.route("/check-progress")
 def check_progress():
+    global is_generating
     processed, results, csv_hash = read_generated_csv()
     has_progress = len(processed) > 0
 
-    # Check if current CSV matches the one used for generation
     current_csv_path = os.path.join(config.UPLOAD_DIR, "current.csv")
     has_csv = os.path.exists(current_csv_path)
     csv_matches = False
@@ -116,7 +120,6 @@ def check_progress():
         current_hash = get_csv_hash(current_csv_path)
         csv_matches = current_hash == csv_hash
 
-        # Check if generation is complete by comparing total rows with processed count
         if csv_matches:
             try:
                 rows, _ = read_csv_data(current_csv_path)
@@ -132,6 +135,7 @@ def check_progress():
             "has_csv": has_csv,
             "csv_matches": csv_matches,
             "is_complete": is_complete,
+            "is_generating": is_generating,
         }
     )
 
@@ -148,7 +152,16 @@ def reset_progress():
 
 @app.route("/generate", methods=["POST"])
 def generate_certificates():
+    global is_generating
+
+    if not generation_lock.acquire(blocking=False):
+        return jsonify({
+            "success": False,
+            "error": "Generation already in progress. Please wait for it to complete."
+        }), 409
+
     try:
+        is_generating = True
         csv_path = os.path.join(config.UPLOAD_DIR, "current.csv")
         if not os.path.exists(csv_path):
             return jsonify({"success": False, "error": "No CSV uploaded"}), 400
@@ -168,12 +181,13 @@ def generate_certificates():
             PDFUploader(
                 service=config.UPLOAD_SERVICE,
                 cloudinary_config=config.get_cloudinary_config(),
+                cloudinary_folder=config.CLOUDINARY_FOLDER,
             )
             if config.UPLOAD_SERVICE == "cloudinary"
             else PDFUploader(service=config.UPLOAD_SERVICE)
         )
 
-        new_results = []  # Track only newly generated certificates
+        new_results = []
 
         for row in rows:
             name = row[config.NAME_COLUMN].strip()
@@ -192,24 +206,26 @@ def generate_certificates():
             try:
                 append_to_generated_csv(result, fieldnames, csv_hash)
                 all_results.append(result)
-                new_results.append(result)  # Track new results
+                new_results.append(result)
                 processed_names.add(name)
             except Exception as e:
                 print(f"✗ Failed to save progress for {name}: {e}")
-                # Still continue with other certificates even if CSV write fails
                 pass
 
         return jsonify(
             {
                 "success": True,
                 "message": f"Generated {len(new_results)} certificates",
-                "results": all_results,  # All results including previous
-                "new_results": new_results,  # Only newly generated
+                "results": all_results,
+                "new_results": new_results,
                 "completed": len(processed_names) == len(rows),
             }
         )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        is_generating = False
+        generation_lock.release()
 
 
 @app.route("/download-csv")
