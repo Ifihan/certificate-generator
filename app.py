@@ -12,6 +12,7 @@ app.config["MAX_CONTENT_LENGTH"] = config.MAX_UPLOAD_SIZE
 
 generation_lock = Lock()
 is_generating = False
+cancel_requested = False
 
 
 def get_csv_hash(filepath):
@@ -150,9 +151,16 @@ def reset_progress():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route("/cancel-generation", methods=["POST"])
+def cancel_generation():
+    global cancel_requested
+    cancel_requested = True
+    return jsonify({"success": True, "message": "Cancellation requested"})
+
+
 @app.route("/generate", methods=["POST"])
 def generate_certificates():
-    global is_generating
+    global is_generating, cancel_requested
 
     if not generation_lock.acquire(blocking=False):
         return jsonify({
@@ -162,6 +170,7 @@ def generate_certificates():
 
     try:
         is_generating = True
+        cancel_requested = False
         csv_path = os.path.join(config.UPLOAD_DIR, "current.csv")
         if not os.path.exists(csv_path):
             return jsonify({"success": False, "error": "No CSV uploaded"}), 400
@@ -188,8 +197,14 @@ def generate_certificates():
         )
 
         new_results = []
+        cancelled = False
 
         for row in rows:
+            if cancel_requested:
+                cancelled = True
+                print("⚠️  Generation cancelled by user")
+                break
+
             name = row[config.NAME_COLUMN].strip()
             if name in processed_names:
                 continue
@@ -215,16 +230,18 @@ def generate_certificates():
         return jsonify(
             {
                 "success": True,
-                "message": f"Generated {len(new_results)} certificates",
+                "message": f"Generated {len(new_results)} certificates" + (" (cancelled)" if cancelled else ""),
                 "results": all_results,
                 "new_results": new_results,
                 "completed": len(processed_names) == len(rows),
+                "cancelled": cancelled,
             }
         )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
     finally:
         is_generating = False
+        cancel_requested = False
         generation_lock.release()
 
 

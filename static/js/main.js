@@ -28,6 +28,7 @@ async function checkExistingProgress() {
                 continueBtn.disabled = true;
                 status.className = 'status show loading';
                 status.innerHTML = `<div class="spinner"></div>Generation in progress... ${processed_count} certificate(s) generated so far.`;
+                document.getElementById('cancelBtn').classList.remove('hidden');
                 document.getElementById('resetBtn').classList.add('hidden');
 
                 startPollingForProgress(processed_count);
@@ -177,11 +178,18 @@ async function generateCertificates() {
 
     const generateBtn = document.getElementById('generateBtn');
     const continueBtn = document.getElementById('continueBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const resetBtn = document.getElementById('resetBtn');
     const status = document.getElementById('status');
 
     // Disable both buttons during generation
     generateBtn.disabled = true;
     continueBtn.disabled = true;
+
+    // Show Cancel button, hide Reset button
+    cancelBtn.classList.remove('hidden');
+    cancelBtn.disabled = false;
+    resetBtn.classList.add('hidden');
 
     status.className = 'status show loading';
     status.innerHTML = '<div class="spinner"></div>Generating certificates...';
@@ -276,6 +284,10 @@ async function generateCertificates() {
                 continueBtn.classList.remove('hidden');
                 continueBtn.disabled = false;
             }
+
+            // Hide Cancel button, show Reset button
+            cancelBtn.classList.add('hidden');
+            resetBtn.classList.remove('hidden');
         } else {
             throw new Error(data.error);
         }
@@ -283,6 +295,7 @@ async function generateCertificates() {
         clearInterval(pollInterval);
         status.className = 'status show error';
         status.innerHTML = `<strong>Error:</strong> ${e.message}`;
+
         // Re-enable whichever button was visible
         if (!generateBtn.classList.contains('hidden')) {
             generateBtn.disabled = false;
@@ -290,6 +303,12 @@ async function generateCertificates() {
         if (!continueBtn.classList.contains('hidden')) {
             continueBtn.disabled = false;
         }
+
+        // Hide Cancel button, show Reset button
+        cancelBtn.classList.add('hidden');
+        resetBtn.classList.remove('hidden');
+    } finally {
+        activeGenerationController = null;
     }
 }
 
@@ -372,6 +391,32 @@ function displayResults(results, showDownload) {
 
     // Scroll to bottom when loading existing results
     resultsContainer.scrollTop = resultsContainer.scrollHeight;
+}
+
+// Cancel generation
+async function cancelGeneration() {
+    const status = document.getElementById('status');
+    const cancelBtn = document.getElementById('cancelBtn');
+
+    cancelBtn.disabled = true;
+    status.className = 'status show warning';
+    status.innerHTML = 'Cancelling generation...';
+
+    try {
+        const response = await fetch('/cancel-generation', { method: 'POST' });
+        const data = await response.json();
+
+        if (data.success) {
+            status.className = 'status show warning';
+            status.innerHTML = 'Generation cancelled. Progress has been saved.';
+        } else {
+            throw new Error(data.error);
+        }
+    } catch (e) {
+        status.className = 'status show error';
+        status.innerHTML = `<strong>Error:</strong> ${e.message}`;
+        cancelBtn.disabled = false;
+    }
 }
 
 // Reset progress

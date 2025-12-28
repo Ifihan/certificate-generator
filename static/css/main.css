@@ -83,11 +83,7 @@ h1 {
 }
 
 input[type="file"] {
-    display: block;
-    margin: 16px auto;
-    padding: 8px;
-    font-size: 0.875rem;
-    color: #6b7280;
+    display: none;
 }
 
 .upload-label {
@@ -179,6 +175,16 @@ input[type="file"] {
 .btn-warning:hover:not(:disabled) {
     background: #fef2f2;
     border-color: #f87171;
+}
+
+.btn-cancel {
+    background: #dc2626;
+    color: white;
+}
+
+.btn-cancel:hover:not(:disabled) {
+    background: #b91c1c;
+    transform: translateY(-1px);
 }
 
 .btn-group {
