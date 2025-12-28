@@ -20,14 +20,17 @@ generated_certificates.csv
 
 # Uploaded CSVs
 uploads/
+
+# Ignore all CSV files
 *.csv
-!sample_template.csv
+
+# But keep sample/template CSV files
+sample_template.csv
+sample_100_names.csv
 
 # macOS
 .DS_Store
 
-# Sample/test files
-sample.pdf
 
 # IDE
 .claude/

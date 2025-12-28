@@ -21,6 +21,11 @@ class CertificateGenerator:
         return ImageFont.load_default()
 
     def generate_certificate(self, name):
+        if not os.path.exists(self.template_path):
+            raise FileNotFoundError(
+                f"Certificate template not found: {self.template_path}\n"
+                f"Please add a certificate template image to the project root."
+            )
         img = Image.open(self.template_path)
         width, height = img.size
         draw = ImageDraw.Draw(img)

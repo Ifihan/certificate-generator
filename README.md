@@ -28,8 +28,8 @@
 1. **Clone the repository**
 
    ```bash
-   git clone <repository-url>
-   cd icair-certificate
+   git clone https://github.com/Ifihan/certificate-generator.git
+   cd certificate-generator
    ```
 
 2. **Install UV (if not already installed)**
@@ -55,10 +55,10 @@
 5. **Run the application**
 
    ```bash
-   ./start.sh
+   python app.py
    ```
 
-   Or manually:
+   Or with UV:
 
    ```bash
    uv run python app.py
@@ -117,44 +117,30 @@ All customization is done through [`config.py`](./config.py):
 
 ```python
 # Certificate Template
-CERTIFICATE_TEMPLATE = 'certificate.jpg'  # Path to your template image
+CERTIFICATE_TEMPLATE = 'certificate.png'  # Path to your template image (PNG or JPG)
 
 # Font Settings
-FONT_PATH = 'AlexBrush-Regular.ttf'       # Path to your font file
-FONT_SIZE = 200                            # Font size for names
+FONT_PATH = 'static/fonts/AlexBrush-Regular.ttf'  # Path to your font file
+FONT_SIZE = 120                            # Font size for names
 
 # Text Positioning (0.0 = top, 0.5 = middle, 1.0 = bottom)
-TEXT_Y_POSITION = 0.50
+TEXT_Y_POSITION = 0.44
 
 # Text Color (RGB: 0-255)
 TEXT_COLOR = (123, 94, 210)               # Purple
 
 # Text Stroke
 STROKE_WIDTH = 2
-```
 
-### Branding Customization
-
-```python
-# Application Name (shown in UI)
-APP_NAME = "ICAIR Certificate Generator"
-
-# Application Subtitle
-APP_SUBTITLE = "Generate participation certificates for all attendees"
-
-# UI Color Scheme (CSS gradient colors)
-PRIMARY_COLOR = "#667eea"    # Purple
-SECONDARY_COLOR = "#764ba2"  # Darker purple
+# Image Quality
+IMAGE_QUALITY = 95
 ```
 
 ### CSV Configuration
 
 ```python
 # Required column name for recipient names
-NAME_COLUMN = 'name'
-
-# Additional columns to preserve in output CSV
-PRESERVE_COLUMNS = []  # All columns are preserved by default
+NAME_COLUMN = 'name'  # All other columns are automatically preserved
 ```
 
 ### Storage Provider Setup
@@ -169,6 +155,7 @@ UPLOAD_SERVICE=cloudinary  # Options: cloudinary, catbox, fileio, tmpfiles
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
+CLOUDINARY_FOLDER=demo  # Optional: folder name in Cloudinary (default: demo)
 ```
 
 #### Storage Provider Comparison
@@ -200,19 +187,24 @@ UPLOAD_SERVICE=catbox
 ## Project Structure
 
 ```bash
-icair-certificate/
+certificate-generator/
 ├── app.py                      # Flask application with all routes
 ├── certificate_generator.py    # Certificate generation logic
 ├── pdf_uploader.py            # Multi-provider upload abstraction
 ├── config.py                  # Central configuration file
 ├── templates/
-│   └── index.html             # Web interface
-├── certificate.jpg            # Certificate template (replace with yours)
-├── AlexBrush-Regular.ttf     # Font file (replace with yours)
+│   └── index.html             # Web interface (HTML only)
+├── static/                    # Static assets
+│   ├── css/
+│   │   └── main.css           # Application styles
+│   ├── js/
+│   │   └── main.js            # Frontend logic
+│   └── fonts/
+│       └── AlexBrush-Regular.ttf  # Font file (add your own)
+├── certificate.png            # Certificate template (PNG/JPG, replace with yours)
 ├── output/                    # Generated PDFs
 ├── uploads/                   # Uploaded CSV files
 ├── generated_certificates.csv # Results with URLs
-├── progress.json              # Progress tracking
 ├── .env                       # Environment variables (create from .env.example)
 ├── .env.example              # Environment template
 ├── pyproject.toml            # Dependencies
@@ -271,7 +263,7 @@ CLOUDINARY_API_SECRET=your_api_secret
 
 If custom font doesn't load:
 
-- Ensure font file exists in project root
+- Ensure font file exists at the path specified in `FONT_PATH` (default: `static/fonts/AlexBrush-Regular.ttf`)
 - Check `FONT_PATH` in `config.py`
 - System will automatically fall back to system fonts
 
@@ -289,8 +281,8 @@ If custom font doesn't load:
 
 ### Progress Not Saving
 
-- Check write permissions for `progress.json`
-- Ensure `uploads/` directory exists
+- Check write permissions for `generated_certificates.csv`
+- Ensure `uploads/` and `output/` directories exist
 - Check browser console for errors
 
 ## Contributing
@@ -303,8 +295,8 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/your-username/icair-certificate/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-username/icair-certificate/discussions)
+- **Issues**: [GitHub Issues](https://github.com/Ifihan/certificate-generator/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Ifihan/certificate-generator/discussions)
 
 ## Acknowledgments
 

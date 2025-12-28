@@ -34,12 +34,12 @@ Examples of behavior that contributes to a positive environment:
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/your-username/icair-certificate.git
-   cd icair-certificate
+   git clone https://github.com/your-username/certificate-generator.git
+   cd certificate-generator
    ```
 3. **Add upstream remote**:
    ```bash
-   git remote add upstream https://github.com/original-owner/icair-certificate.git
+   git remote add upstream https://github.com/Ifihan/certificate-generator.git
    ```
 
 ## Development Setup

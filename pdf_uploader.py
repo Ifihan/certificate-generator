@@ -7,10 +7,11 @@ import cloudinary.api
 class PDFUploader:
     """Upload PDFs to file hosting services and get shareable links"""
 
-    def __init__(self, service='fileio', cloudinary_config=None):
+    def __init__(self, service='fileio', cloudinary_config=None, cloudinary_folder='demo'):
         """Initialize the uploader"""
         self.service = service
         self.cloudinary_config = cloudinary_config
+        self.cloudinary_folder = cloudinary_folder
 
         if service == 'cloudinary':
             if not cloudinary_config:
@@ -40,14 +41,13 @@ class PDFUploader:
         try:
             sanitized_name = "".join(c for c in name if c.isalnum() or c in (' ', '-', '_')).strip()
             sanitized_name = sanitized_name.replace(' ', '_')
-            public_id = f"icair_certificates/{sanitized_name}"
+            public_id = f"{self.cloudinary_folder}/{sanitized_name}"
 
             response = cloudinary.uploader.upload(
                 file_path,
                 resource_type="raw",
                 public_id=public_id,
-                overwrite=True,
-                folder="icair_certificates"
+                overwrite=True
             )
 
             secure_url = response.get('secure_url')
