@@ -3,12 +3,17 @@ import csv
 import hashlib
 from threading import Lock
 from flask import Flask, render_template, jsonify, send_file, request
+from werkzeug.utils import secure_filename
 from certificate_generator import CertificateGenerator
 from pdf_uploader import PDFUploader
 import config
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = config.MAX_UPLOAD_SIZE
+
+# Allowed file extensions for uploads
+ALLOWED_FONT_EXTENSIONS = {"ttf", "otf"}
+ALLOWED_TEMPLATE_EXTENSIONS = {"png", "jpg", "jpeg"}
 
 generation_lock = Lock()
 is_generating = False
@@ -252,6 +257,152 @@ def download_csv():
     return send_file(
         config.GENERATED_CSV, as_attachment=True, download_name="certificates.csv"
     )
+
+
+# ============ Settings API Endpoints ============
+
+@app.route("/api/settings", methods=["GET"])
+def get_settings():
+    """Get current visual settings"""
+    settings = config.load_settings()
+    return jsonify(settings)
+
+
+@app.route("/api/settings", methods=["POST"])
+def save_settings():
+    """Save visual settings"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "No data provided"}), 400
+
+        # Validate required fields
+        current_settings = config.load_settings()
+        updated_settings = {**current_settings, **data}
+
+        # Validate template exists
+        template_path = os.path.join(config.TEMPLATES_DIR, updated_settings["template"])
+        if not os.path.exists(template_path):
+            return jsonify({"success": False, "error": f"Template not found: {updated_settings['template']}"}), 400
+
+        # Validate font exists
+        if not os.path.exists(updated_settings["font_path"]):
+            return jsonify({"success": False, "error": f"Font not found: {updated_settings['font_path']}"}), 400
+
+        config.save_settings(updated_settings)
+        return jsonify({"success": True, "settings": updated_settings})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/templates", methods=["GET"])
+def list_templates():
+    """List available certificate templates"""
+    templates = []
+    if os.path.exists(config.TEMPLATES_DIR):
+        for f in os.listdir(config.TEMPLATES_DIR):
+            ext = f.rsplit(".", 1)[-1].lower() if "." in f else ""
+            if ext in ALLOWED_TEMPLATE_EXTENSIONS:
+                templates.append({
+                    "name": f.rsplit(".", 1)[0].replace("_", " ").replace("-", " ").title(),
+                    "filename": f
+                })
+    return jsonify({"templates": templates})
+
+
+@app.route("/api/fonts", methods=["GET"])
+def list_fonts():
+    """List available fonts"""
+    fonts = []
+    if os.path.exists(config.FONTS_DIR):
+        for f in os.listdir(config.FONTS_DIR):
+            ext = f.rsplit(".", 1)[-1].lower() if "." in f else ""
+            if ext in ALLOWED_FONT_EXTENSIONS:
+                fonts.append({
+                    "name": f.rsplit(".", 1)[0].replace("_", " ").replace("-", " ").title(),
+                    "path": os.path.join(config.FONTS_DIR, f)
+                })
+    return jsonify({"fonts": fonts})
+
+
+@app.route("/api/upload-template", methods=["POST"])
+def upload_template():
+    """Upload a new certificate template"""
+    try:
+        if "file" not in request.files:
+            return jsonify({"success": False, "error": "No file provided"}), 400
+
+        file = request.files["file"]
+        if not file.filename:
+            return jsonify({"success": False, "error": "No file selected"}), 400
+
+        ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+        if ext not in ALLOWED_TEMPLATE_EXTENSIONS:
+            return jsonify({"success": False, "error": f"Invalid file type. Allowed: {', '.join(ALLOWED_TEMPLATE_EXTENSIONS)}"}), 400
+
+        filename = secure_filename(file.filename)
+        os.makedirs(config.TEMPLATES_DIR, exist_ok=True)
+        filepath = os.path.join(config.TEMPLATES_DIR, filename)
+        file.save(filepath)
+
+        return jsonify({
+            "success": True,
+            "filename": filename,
+            "message": f"Template '{filename}' uploaded successfully"
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/upload-font", methods=["POST"])
+def upload_font():
+    """Upload a new font file"""
+    try:
+        if "file" not in request.files:
+            return jsonify({"success": False, "error": "No file provided"}), 400
+
+        file = request.files["file"]
+        if not file.filename:
+            return jsonify({"success": False, "error": "No file selected"}), 400
+
+        ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+        if ext not in ALLOWED_FONT_EXTENSIONS:
+            return jsonify({"success": False, "error": f"Invalid file type. Allowed: {', '.join(ALLOWED_FONT_EXTENSIONS)}"}), 400
+
+        filename = secure_filename(file.filename)
+        os.makedirs(config.FONTS_DIR, exist_ok=True)
+        filepath = os.path.join(config.FONTS_DIR, filename)
+        file.save(filepath)
+
+        return jsonify({
+            "success": True,
+            "path": filepath,
+            "filename": filename,
+            "message": f"Font '{filename}' uploaded successfully"
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/preview", methods=["POST"])
+def generate_preview():
+    """Generate a preview image with the given settings"""
+    try:
+        data = request.get_json() or {}
+        name = data.pop("name", "Sample Name")
+
+        # Merge with current settings
+        current_settings = config.load_settings()
+        preview_settings = {**current_settings, **data}
+
+        generator = CertificateGenerator(settings=preview_settings)
+        preview = generator.generate_preview(name=name, settings=preview_settings)
+
+        return jsonify({"success": True, "preview": preview})
+    except FileNotFoundError as e:
+        return jsonify({"success": False, "error": str(e)}), 404
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 if __name__ == "__main__":

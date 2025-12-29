@@ -3,6 +3,11 @@ let uploadedFile = false;
 let hasProgress = false;
 let isComplete = false;
 
+// Settings state
+let currentSettings = {};
+let settingsExpanded = true; // Start expanded by default
+let previewDebounceTimer = null;
+
 // Check for existing progress on page load
 async function checkExistingProgress() {
     try {
@@ -518,6 +523,8 @@ function setupDragAndDrop() {
 window.addEventListener('DOMContentLoaded', () => {
     checkExistingProgress();
     setupDragAndDrop();
+    loadSettings();
+    setupMarkerDrag();
 });
 
 // Abort active generation on page unload
@@ -526,3 +533,383 @@ window.addEventListener('beforeunload', () => {
         activeGenerationController.abort();
     }
 });
+
+// ============ Settings Functions ============
+
+// Toggle settings panel
+function toggleSettings() {
+    settingsExpanded = !settingsExpanded;
+    const content = document.getElementById('settingsContent');
+    const chevron = document.getElementById('settingsChevron');
+
+    if (settingsExpanded) {
+        content.classList.add('expanded');
+        chevron.style.transform = 'rotate(180deg)';
+        updatePreview();
+    } else {
+        content.classList.remove('expanded');
+        chevron.style.transform = 'rotate(0deg)';
+    }
+}
+
+// Load settings from server
+async function loadSettings() {
+    try {
+        const [settingsRes, templatesRes, fontsRes] = await Promise.all([
+            fetch('/api/settings'),
+            fetch('/api/templates'),
+            fetch('/api/fonts')
+        ]);
+
+        currentSettings = await settingsRes.json();
+        const { templates } = await templatesRes.json();
+        const { fonts } = await fontsRes.json();
+
+        // Populate template dropdown
+        const templateSelect = document.getElementById('templateSelect');
+        templateSelect.innerHTML = templates.map(t =>
+            `<option value="${t.filename}" ${t.filename === currentSettings.template ? 'selected' : ''}>${t.name}</option>`
+        ).join('');
+
+        // Populate font dropdown
+        const fontSelect = document.getElementById('fontSelect');
+        fontSelect.innerHTML = fonts.map(f =>
+            `<option value="${f.path}" ${f.path === currentSettings.font_path ? 'selected' : ''}>${f.name}</option>`
+        ).join('');
+
+        // Set other values
+        document.getElementById('fontSizeSlider').value = currentSettings.font_size;
+        document.getElementById('fontSizeValue').textContent = currentSettings.font_size;
+
+        document.getElementById('strokeWidthSlider').value = currentSettings.stroke_width;
+        document.getElementById('strokeWidthValue').textContent = currentSettings.stroke_width;
+
+        // Convert RGB to hex for color picker
+        const color = currentSettings.text_color;
+        const hexColor = rgbToHex(color[0], color[1], color[2]);
+        document.getElementById('textColor').value = hexColor;
+        document.getElementById('textColorHex').textContent = hexColor.toUpperCase();
+
+        // Set position values
+        document.getElementById('posXValue').textContent = Math.round(currentSettings.text_x_position * 100);
+        document.getElementById('posYValue').textContent = Math.round(currentSettings.text_y_position * 100);
+
+        // Expand settings panel by default and load preview
+        const content = document.getElementById('settingsContent');
+        const chevron = document.getElementById('settingsChevron');
+        content.classList.add('expanded');
+        chevron.style.transform = 'rotate(180deg)';
+        settingsExpanded = true;
+
+        // Load preview
+        updatePreview();
+
+    } catch (e) {
+        console.error('Failed to load settings:', e);
+    }
+}
+
+// Save settings to server
+async function saveSettings() {
+    const saveBtn = document.getElementById('saveSettingsBtn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+
+    try {
+        const settings = getCurrentFormSettings();
+
+        const response = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            currentSettings = data.settings;
+            saveBtn.textContent = 'Saved!';
+
+            // Collapse settings panel after a short delay
+            setTimeout(() => {
+                saveBtn.textContent = 'Save Settings';
+                saveBtn.disabled = false;
+
+                // Collapse the settings panel
+                settingsExpanded = false;
+                const content = document.getElementById('settingsContent');
+                const chevron = document.getElementById('settingsChevron');
+                content.classList.remove('expanded');
+                chevron.style.transform = 'rotate(0deg)';
+
+                // Scroll to CSV upload section
+                const uploadSection = document.querySelector('.upload-section');
+                if (uploadSection) {
+                    uploadSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 800);
+        } else {
+            throw new Error(data.error);
+        }
+    } catch (e) {
+        console.error('Failed to save settings:', e);
+        saveBtn.textContent = 'Error!';
+        setTimeout(() => {
+            saveBtn.textContent = 'Save Settings';
+            saveBtn.disabled = false;
+        }, 1500);
+    }
+}
+
+// Get current settings from form
+function getCurrentFormSettings() {
+    const hexColor = document.getElementById('textColor').value;
+    const rgb = hexToRgb(hexColor);
+
+    return {
+        template: document.getElementById('templateSelect').value,
+        font_path: document.getElementById('fontSelect').value,
+        font_size: parseInt(document.getElementById('fontSizeSlider').value),
+        text_color: [rgb.r, rgb.g, rgb.b],
+        stroke_width: parseInt(document.getElementById('strokeWidthSlider').value),
+        text_x_position: parseFloat(document.getElementById('posXValue').textContent) / 100,
+        text_y_position: parseFloat(document.getElementById('posYValue').textContent) / 100,
+        image_quality: currentSettings.image_quality || 95
+    };
+}
+
+// Called when any setting changes
+function onSettingChange() {
+    // Update color hex display
+    const hexColor = document.getElementById('textColor').value;
+    document.getElementById('textColorHex').textContent = hexColor.toUpperCase();
+
+    // Debounce preview update
+    if (previewDebounceTimer) {
+        clearTimeout(previewDebounceTimer);
+    }
+    previewDebounceTimer = setTimeout(() => {
+        updatePreview();
+    }, 300);
+}
+
+// Update preview image
+async function updatePreview() {
+    const previewLoading = document.getElementById('previewLoading');
+    const previewImage = document.getElementById('previewImage');
+    const positionMarker = document.getElementById('positionMarker');
+
+    previewLoading.style.display = 'flex';
+    previewImage.style.opacity = '0.5';
+
+    try {
+        const settings = getCurrentFormSettings();
+
+        const response = await fetch('/api/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'Sample Name', ...settings })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            previewImage.src = data.preview;
+            previewImage.style.opacity = '1';
+
+            // Update position marker
+            updatePositionMarker();
+        } else {
+            throw new Error(data.error);
+        }
+    } catch (e) {
+        console.error('Failed to update preview:', e);
+    } finally {
+        previewLoading.style.display = 'none';
+    }
+}
+
+// Drag state
+let isDragging = false;
+let dragMarker = null;
+
+// Setup drag functionality for position marker
+function setupMarkerDrag() {
+    const marker = document.getElementById('positionMarker');
+    const container = document.getElementById('previewContainer');
+
+    // Mouse events
+    marker.addEventListener('mousedown', startDrag);
+    document.addEventListener('mousemove', onDrag);
+    document.addEventListener('mouseup', endDrag);
+
+    // Touch events for mobile
+    marker.addEventListener('touchstart', startDrag, { passive: false });
+    document.addEventListener('touchmove', onDrag, { passive: false });
+    document.addEventListener('touchend', endDrag);
+}
+
+function startDrag(event) {
+    event.preventDefault();
+    isDragging = true;
+    dragMarker = document.getElementById('positionMarker');
+    dragMarker.classList.add('dragging');
+}
+
+function onDrag(event) {
+    if (!isDragging) return;
+    event.preventDefault();
+
+    const container = document.getElementById('previewContainer');
+    const rect = container.getBoundingClientRect();
+
+    // Get position from mouse or touch
+    const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+    const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+
+    // Calculate percentage position
+    const x = ((clientX - rect.left) / rect.width) * 100;
+    const y = ((clientY - rect.top) / rect.height) * 100;
+
+    // Clamp values
+    const clampedX = Math.max(5, Math.min(95, x));
+    const clampedY = Math.max(5, Math.min(95, y));
+
+    // Update marker position immediately (no debounce for smooth dragging)
+    dragMarker.style.left = `${clampedX}%`;
+    dragMarker.style.top = `${clampedY}%`;
+
+    // Update display values
+    document.getElementById('posXValue').textContent = Math.round(clampedX);
+    document.getElementById('posYValue').textContent = Math.round(clampedY);
+}
+
+function endDrag() {
+    if (!isDragging) return;
+    isDragging = false;
+
+    if (dragMarker) {
+        dragMarker.classList.remove('dragging');
+        dragMarker = null;
+    }
+
+    // Trigger preview update after drag ends
+    onSettingChange();
+}
+
+// Update position marker on preview
+function updatePositionMarker() {
+    const marker = document.getElementById('positionMarker');
+    const xPos = parseFloat(document.getElementById('posXValue').textContent);
+    const yPos = parseFloat(document.getElementById('posYValue').textContent);
+
+    marker.style.left = `${xPos}%`;
+    marker.style.top = `${yPos}%`;
+    marker.style.display = 'block';
+}
+
+// Upload template file
+async function uploadTemplate(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/api/upload-template', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Refresh templates and select the new one
+            const templatesRes = await fetch('/api/templates');
+            const { templates } = await templatesRes.json();
+
+            const templateSelect = document.getElementById('templateSelect');
+            templateSelect.innerHTML = templates.map(t =>
+                `<option value="${t.filename}" ${t.filename === data.filename ? 'selected' : ''}>${t.name}</option>`
+            ).join('');
+
+            onSettingChange();
+        } else {
+            alert('Upload failed: ' + data.error);
+        }
+    } catch (e) {
+        console.error('Upload failed:', e);
+        alert('Upload failed: ' + e.message);
+    }
+
+    // Reset input
+    event.target.value = '';
+}
+
+// Upload font file
+async function uploadFont(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/api/upload-font', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Refresh fonts and select the new one
+            const fontsRes = await fetch('/api/fonts');
+            const { fonts } = await fontsRes.json();
+
+            const fontSelect = document.getElementById('fontSelect');
+            fontSelect.innerHTML = fonts.map(f =>
+                `<option value="${f.path}" ${f.path === data.path ? 'selected' : ''}>${f.name}</option>`
+            ).join('');
+
+            onSettingChange();
+        } else {
+            alert('Upload failed: ' + data.error);
+        }
+    } catch (e) {
+        console.error('Upload failed:', e);
+        alert('Upload failed: ' + e.message);
+    }
+
+    // Reset input
+    event.target.value = '';
+}
+
+// Update font size label
+function updateFontSizeLabel() {
+    document.getElementById('fontSizeValue').textContent = document.getElementById('fontSizeSlider').value;
+}
+
+// Update stroke width label
+function updateStrokeWidthLabel() {
+    document.getElementById('strokeWidthValue').textContent = document.getElementById('strokeWidthSlider').value;
+}
+
+// Helper: RGB to Hex
+function rgbToHex(r, g, b) {
+    return '#' + [r, g, b].map(x => {
+        const hex = x.toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    }).join('');
+}
+
+// Helper: Hex to RGB
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : { r: 0, g: 0, b: 0 };
+}

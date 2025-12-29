@@ -1,18 +1,57 @@
 """Certificate Generator Configuration - Customize your settings here"""
 
 import os
+import json
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Visual Settings
-CERTIFICATE_TEMPLATE = "certificate.png"
-FONT_PATH = "static/fonts/AlexBrush-Regular.ttf"
-FONT_SIZE = 120
-TEXT_Y_POSITION = 0.44
-TEXT_COLOR = (123, 94, 210)
-STROKE_WIDTH = 2
-IMAGE_QUALITY = 95
+# Settings File
+SETTINGS_FILE = "settings.json"
+TEMPLATES_DIR = "static/templates"
+FONTS_DIR = "static/fonts"
+
+# Default Visual Settings
+DEFAULT_VISUAL_SETTINGS = {
+    "template": "certificate.png",
+    "font_path": "static/fonts/AlexBrush-Regular.ttf",
+    "font_size": 120,
+    "text_x_position": 0.5,
+    "text_y_position": 0.44,
+    "text_color": [123, 94, 210],
+    "stroke_width": 2,
+    "image_quality": 95
+}
+
+
+def load_settings():
+    """Load visual settings from JSON file, or return defaults"""
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                settings = json.load(f)
+                # Merge with defaults to ensure all keys exist
+                return {**DEFAULT_VISUAL_SETTINGS, **settings}
+        except (json.JSONDecodeError, IOError):
+            pass
+    return DEFAULT_VISUAL_SETTINGS.copy()
+
+
+def save_settings(settings):
+    """Save visual settings to JSON file"""
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(settings, f, indent=2)
+
+
+# Load current settings for backward compatibility
+_settings = load_settings()
+CERTIFICATE_TEMPLATE = os.path.join(TEMPLATES_DIR, _settings["template"])
+FONT_PATH = _settings["font_path"]
+FONT_SIZE = _settings["font_size"]
+TEXT_Y_POSITION = _settings["text_y_position"]
+TEXT_COLOR = tuple(_settings["text_color"])
+STROKE_WIDTH = _settings["stroke_width"]
+IMAGE_QUALITY = _settings["image_quality"]
 
 # File Paths
 OUTPUT_DIR = "output"
@@ -68,10 +107,13 @@ def validate_setup():
     """Validate that all required files and settings are present"""
     errors = []
 
-    if not os.path.exists(CERTIFICATE_TEMPLATE):
-        errors.append(f"Certificate template not found: {CERTIFICATE_TEMPLATE}")
+    settings = load_settings()
+    template_path = os.path.join(TEMPLATES_DIR, settings["template"])
+
+    if not os.path.exists(template_path):
+        errors.append(f"Certificate template not found: {template_path}")
         errors.append(
-            f"  Please add a certificate template image (PNG/JPG) in the project root"
+            f"  Please add a certificate template image (PNG/JPG) in static/templates/"
         )
 
     if UPLOAD_SERVICE == "cloudinary" and not all(CLOUDINARY_CONFIG.values()):

@@ -18,6 +18,9 @@ env/
 output/
 generated_certificates.csv
 
+# User settings (generated at runtime)
+settings.json
+
 # Uploaded CSVs
 uploads/
 
