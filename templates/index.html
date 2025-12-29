@@ -13,10 +13,104 @@
 
         <div class="info-box">
             <strong>How it works</strong><br>
-            1. Upload CSV with 'name' column<br>
-            2. Click "Generate Certificates"<br>
-            3. Download CSV with certificate links<br>
-            4. Generation progress is saved automatically
+            1. Customize your certificate (template, font, colors, text position)<br>
+            2. Upload CSV with 'name' column<br>
+            3. Click "Generate Certificates"<br>
+            4. Download CSV with certificate links
+        </div>
+
+        <!-- Settings Panel -->
+        <div class="settings-panel">
+            <div class="settings-header" onclick="toggleSettings()">
+                <span class="settings-title">
+                    <svg class="settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                    Certificate Settings
+                </span>
+                <svg class="chevron-icon" id="settingsChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            </div>
+
+            <div class="settings-content" id="settingsContent">
+                <div class="settings-grid">
+                    <!-- Template Selection -->
+                    <div class="setting-group">
+                        <label class="setting-label" for="templateSelect">Template</label>
+                        <div class="setting-row">
+                            <select id="templateSelect" class="setting-select" title="Select certificate template" onchange="onSettingChange()">
+                                <option value="">Loading...</option>
+                            </select>
+                            <label class="upload-btn-small">
+                                <input type="file" accept=".png,.jpg,.jpeg" onchange="uploadTemplate(event)" hidden>
+                                Upload
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Font Selection -->
+                    <div class="setting-group">
+                        <label class="setting-label" for="fontSelect">Font</label>
+                        <div class="setting-row">
+                            <select id="fontSelect" class="setting-select" title="Select font" onchange="onSettingChange()">
+                                <option value="">Loading...</option>
+                            </select>
+                            <label class="upload-btn-small">
+                                <input type="file" accept=".ttf,.otf" onchange="uploadFont(event)" hidden>
+                                Upload
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Font Size -->
+                    <div class="setting-group">
+                        <label class="setting-label" for="fontSizeSlider">Font Size: <span id="fontSizeValue">120</span>px</label>
+                        <input type="range" id="fontSizeSlider" class="setting-slider" title="Adjust font size" min="20" max="300" value="120" oninput="updateFontSizeLabel(); onSettingChange()">
+                    </div>
+
+                    <!-- Text Color -->
+                    <div class="setting-group">
+                        <label class="setting-label" for="textColor">Text Color</label>
+                        <div class="setting-row">
+                            <input type="color" id="textColor" class="setting-color" title="Select text color" value="#7B5ED2" onchange="onSettingChange()">
+                            <span id="textColorHex" class="color-hex">#7B5ED2</span>
+                        </div>
+                    </div>
+
+                    <!-- Stroke Width -->
+                    <div class="setting-group">
+                        <label class="setting-label" for="strokeWidthSlider">Stroke Width: <span id="strokeWidthValue">2</span>px</label>
+                        <input type="range" id="strokeWidthSlider" class="setting-slider" title="Adjust stroke width" min="0" max="10" value="2" oninput="updateStrokeWidthLabel(); onSettingChange()">
+                    </div>
+                </div>
+
+                <!-- Preview Section -->
+                <div class="preview-section">
+                    <label class="setting-label">Preview (drag the marker to position text)</label>
+                    <div class="preview-container" id="previewContainer">
+                        <img id="previewImage" src="" alt="Certificate Preview" draggable="false">
+                        <div class="position-marker" id="positionMarker" title="Drag to position text">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/>
+                            </svg>
+                        </div>
+                        <div class="preview-loading" id="previewLoading">
+                            <div class="spinner"></div>
+                            Loading preview...
+                        </div>
+                    </div>
+                    <div class="position-info">
+                        Text Position: X: <span id="posXValue">50</span>% Y: <span id="posYValue">44</span>%
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <div class="settings-actions">
+                    <button type="button" class="btn btn-primary" id="saveSettingsBtn" onclick="saveSettings()">Save Settings</button>
+                </div>
+            </div>
         </div>
 
         <div class="upload-section">
