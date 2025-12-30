@@ -27,6 +27,19 @@ class CertificateGenerator:
                 return ImageFont.truetype(path, font_size)
         return ImageFont.load_default()
 
+    def _convert_to_rgb(self, img):
+        """Convert image to RGB mode for JPEG compatibility"""
+        if img.mode in ("RGBA", "LA", "P"):
+            # Create a white background for transparent images
+            background = Image.new("RGB", img.size, (255, 255, 255))
+            if img.mode == "P":
+                img = img.convert("RGBA")
+            background.paste(img, mask=img.split()[-1] if img.mode in ("RGBA", "LA") else None)
+            return background
+        elif img.mode != "RGB":
+            return img.convert("RGB")
+        return img
+
     def generate_certificate(self, name):
         template_path = self._get_template_path()
 
@@ -37,6 +50,8 @@ class CertificateGenerator:
             )
 
         img = Image.open(template_path)
+        # Convert to RGB if necessary (for JPEG compatibility)
+        img = self._convert_to_rgb(img)
         width, height = img.size
         draw = ImageDraw.Draw(img)
         font = self._load_font()
@@ -89,6 +104,8 @@ class CertificateGenerator:
             raise FileNotFoundError(f"Template not found: {template_path}")
 
         img = Image.open(template_path)
+        # Convert to RGB if necessary (for JPEG compatibility)
+        img = self._convert_to_rgb(img)
         width, height = img.size
         draw = ImageDraw.Draw(img)
         font = self._load_font()

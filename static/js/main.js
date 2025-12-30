@@ -567,15 +567,33 @@ async function loadSettings() {
 
         // Populate template dropdown
         const templateSelect = document.getElementById('templateSelect');
-        templateSelect.innerHTML = templates.map(t =>
-            `<option value="${t.filename}" ${t.filename === currentSettings.template ? 'selected' : ''}>${t.name}</option>`
-        ).join('');
+        if (templates && templates.length > 0) {
+            templateSelect.innerHTML = templates.map(t =>
+                `<option value="${t.filename}" ${t.filename === currentSettings.template ? 'selected' : ''}>${t.name}</option>`
+            ).join('');
+
+            // Ensure the saved template is selected, or fall back to first available
+            if (!templateSelect.value || !templates.find(t => t.filename === templateSelect.value)) {
+                templateSelect.value = templates[0].filename;
+            }
+        } else {
+            templateSelect.innerHTML = '<option value="">No templates available - upload one</option>';
+        }
 
         // Populate font dropdown
         const fontSelect = document.getElementById('fontSelect');
-        fontSelect.innerHTML = fonts.map(f =>
-            `<option value="${f.path}" ${f.path === currentSettings.font_path ? 'selected' : ''}>${f.name}</option>`
-        ).join('');
+        if (fonts && fonts.length > 0) {
+            fontSelect.innerHTML = fonts.map(f =>
+                `<option value="${f.path}" ${f.path === currentSettings.font_path ? 'selected' : ''}>${f.name}</option>`
+            ).join('');
+
+            // Ensure the saved font is selected, or fall back to first available
+            if (!fontSelect.value || !fonts.find(f => f.path === fontSelect.value)) {
+                fontSelect.value = fonts[0].path;
+            }
+        } else {
+            fontSelect.innerHTML = '<option value="">No fonts available - upload one</option>';
+        }
 
         // Set other values
         document.getElementById('fontSizeSlider').value = currentSettings.font_size;
@@ -601,8 +619,10 @@ async function loadSettings() {
         chevron.style.transform = 'rotate(180deg)';
         settingsExpanded = true;
 
-        // Load preview
-        updatePreview();
+        // Load preview only if we have a template
+        if (templates && templates.length > 0) {
+            updatePreview();
+        }
 
     } catch (e) {
         console.error('Failed to load settings:', e);
@@ -699,11 +719,20 @@ async function updatePreview() {
     const previewImage = document.getElementById('previewImage');
     const positionMarker = document.getElementById('positionMarker');
 
+    // Check if we have a valid template selected
+    const templateSelect = document.getElementById('templateSelect');
+    if (!templateSelect.value) {
+        console.warn('No template selected, skipping preview update');
+        previewLoading.style.display = 'none';
+        return;
+    }
+
     previewLoading.style.display = 'flex';
     previewImage.style.opacity = '0.5';
 
     try {
         const settings = getCurrentFormSettings();
+        console.log('Updating preview with settings:', settings);
 
         const response = await fetch('/api/preview', {
             method: 'POST',
@@ -714,13 +743,16 @@ async function updatePreview() {
         const data = await response.json();
 
         if (data.success) {
+            // Force image refresh by adding timestamp to prevent caching
             previewImage.src = data.preview;
             previewImage.style.opacity = '1';
 
             // Update position marker
             updatePositionMarker();
         } else {
-            throw new Error(data.error);
+            console.error('Preview generation failed:', data.error);
+            // Show a placeholder or error state
+            previewImage.alt = 'Preview failed: ' + data.error;
         }
     } catch (e) {
         console.error('Failed to update preview:', e);
@@ -816,6 +848,10 @@ async function uploadTemplate(event) {
     const formData = new FormData();
     formData.append('file', file);
 
+    // Show loading state
+    const previewLoading = document.getElementById('previewLoading');
+    previewLoading.style.display = 'flex';
+
     try {
         const response = await fetch('/api/upload-template', {
             method: 'POST',
@@ -834,13 +870,19 @@ async function uploadTemplate(event) {
                 `<option value="${t.filename}" ${t.filename === data.filename ? 'selected' : ''}>${t.name}</option>`
             ).join('');
 
-            onSettingChange();
+            // Force the value to be set correctly
+            templateSelect.value = data.filename;
+
+            // Update preview immediately with the new template
+            await updatePreview();
         } else {
             alert('Upload failed: ' + data.error);
         }
     } catch (e) {
         console.error('Upload failed:', e);
         alert('Upload failed: ' + e.message);
+    } finally {
+        previewLoading.style.display = 'none';
     }
 
     // Reset input
