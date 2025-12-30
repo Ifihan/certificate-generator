@@ -7,13 +7,15 @@
 
 ## Features
 
-- **CSV Upload Interface**: Upload CSV files directly through a web interface
+- **Visual Settings Panel**: Customize certificates directly in the browser with live preview
+- **Drag-and-Drop Text Positioning**: Position text on certificates by dragging a marker
+- **Drag-and-Drop CSV Upload**: Upload CSV files by dragging them into the browser
 - **Multiple Storage Providers**: Choose from Cloudinary, Catbox, file.io, or tmpfiles
 - **Progress Tracking**: Automatic progress saving - resume if interrupted
+- **Cancel Generation**: Stop certificate generation mid-process and resume later
 - **CSV Change Detection**: Detects when a different CSV is uploaded
 - **Column Preservation**: All columns from input CSV are preserved in output
-- **Beautiful Certificates**: Customizable fonts, colors, and positioning
-- **Easy Customization**: Single configuration file for all settings
+- **Custom Templates & Fonts**: Upload your own certificate templates and fonts
 - **Production Ready**: Error handling, validation, and robust architecture
 
 ## Quick Start
@@ -65,15 +67,16 @@
    ```
 
 6. **Open your browser**
-   Navigate to [http://localhost:5000](http://localhost:5000)
+   Navigate to [http://localhost:5001](http://localhost:5001)
 
 ## Usage
 
 ### Basic Workflow
 
-1. **Upload CSV File**: Click "Choose CSV File" and select your CSV
-2. **Generate Certificates**: Click "Generate Certificates" to start processing
-3. **Download Results**: Download the CSV with certificate URLs when complete
+1. **Customize Settings**: Expand "Certificate Settings" to upload your template, adjust template, font, colors, and text position
+2. **Upload CSV File**: Drag and drop a CSV file or click "Browse Files" to select your CSV
+3. **Generate Certificates**: Click "Generate Certificates" to start processing
+4. **Download Results**: Download the CSV with certificate URLs when complete
 
 ### CSV Format
 
@@ -111,36 +114,37 @@ If you upload a different CSV:
 
 ## Customization
 
-All customization is done through [`config.py`](./config.py):
+### Visual Settings (Web Interface)
 
-### Visual Customization
+The easiest way to customize certificates is through the web interface:
 
-```python
-# Certificate Template
-CERTIFICATE_TEMPLATE = 'certificate.png'  # Path to your template image (PNG or JPG)
+1. Click on "Certificate Settings" to expand the settings panel
+2. **Template**: Select or upload a certificate template image (PNG/JPG)
+3. **Font**: Select or upload a custom font file (TTF/OTF)
+4. **Font Size**: Adjust using the slider (20-300px)
+5. **Text Color**: Pick a color using the color picker
+6. **Stroke Width**: Adjust text stroke/outline thickness (0-10px)
+7. **Text Position**: Drag the marker on the preview to position text
+8. Click "Save Settings" to persist your changes
 
-# Font Settings
-FONT_PATH = 'static/fonts/AlexBrush-Regular.ttf'  # Path to your font file
-FONT_SIZE = 120                            # Font size for names
+Settings are saved to `settings.json` and persist across sessions.
 
-# Text Positioning (0.0 = top, 0.5 = middle, 1.0 = bottom)
-TEXT_Y_POSITION = 0.44
+### Configuration File
 
-# Text Color (RGB: 0-255)
-TEXT_COLOR = (123, 94, 210)               # Purple
-
-# Text Stroke
-STROKE_WIDTH = 2
-
-# Image Quality
-IMAGE_QUALITY = 95
-```
-
-### CSV Configuration
+Advanced settings can be configured in [`config.py`](./config.py):
 
 ```python
-# Required column name for recipient names
-NAME_COLUMN = 'name'  # All other columns are automatically preserved
+# CSV Settings
+NAME_COLUMN = 'name'  # Required column name for recipient names
+
+# Storage Provider (cloudinary|catbox|fileio|tmpfiles)
+UPLOAD_SERVICE = os.getenv("UPLOAD_SERVICE", "cloudinary")
+
+# App Settings
+DEBUG_MODE = True
+PORT = 5000
+HOST = "127.0.0.1"
+MAX_UPLOAD_SIZE = 16 * 1024 * 1024  # 16MB
 ```
 
 ### Storage Provider Setup
@@ -192,20 +196,22 @@ certificate-generator/
 ├── certificate_generator.py    # Certificate generation logic
 ├── pdf_uploader.py            # Multi-provider upload abstraction
 ├── config.py                  # Central configuration file
+├── settings.json              # Saved visual settings (auto-generated)
 ├── templates/
-│   └── index.html             # Web interface (HTML only)
-├── static/                    # Static assets
+│   └── index.html             # Web interface
+├── static/
 │   ├── css/
 │   │   └── main.css           # Application styles
 │   ├── js/
 │   │   └── main.js            # Frontend logic
-│   └── fonts/
-│       └── AlexBrush-Regular.ttf  # Font file (add your own)
-├── certificate.png            # Certificate template (PNG/JPG, replace with yours)
-├── output/                    # Generated PDFs
+│   ├── fonts/                 # Font files (TTF/OTF)
+│   │   └── AlexBrush-Regular.ttf
+│   └── templates/             # Certificate template images (PNG/JPG)
+│       └── certificate.png
+├── output/                    # Generated certificate PDFs
 ├── uploads/                   # Uploaded CSV files
-├── generated_certificates.csv # Results with URLs
-├── .env                       # Environment variables (create from .env.example)
+├── generated_certificates.csv # Results with certificate URLs
+├── .env                       # Environment variables
 ├── .env.example              # Environment template
 ├── pyproject.toml            # Dependencies
 └── README.md                 # This file
@@ -213,14 +219,29 @@ certificate-generator/
 
 ## API Endpoints
 
-| Endpoint          | Method | Description                  |
-| ----------------- | ------ | ---------------------------- |
-| `/`               | GET    | Render main page             |
-| `/upload-csv`     | POST   | Upload and validate CSV file |
-| `/check-progress` | GET    | Check for existing progress  |
-| `/generate`       | POST   | Generate certificates        |
-| `/reset-progress` | POST   | Reset progress for new CSV   |
-| `/download-csv`   | GET    | Download results CSV         |
+### Core Endpoints
+
+| Endpoint             | Method | Description                           |
+| -------------------- | ------ | ------------------------------------- |
+| `/`                  | GET    | Render main page                      |
+| `/upload-csv`        | POST   | Upload and validate CSV file          |
+| `/check-progress`    | GET    | Check for existing progress           |
+| `/generate`          | POST   | Generate certificates                 |
+| `/cancel-generation` | POST   | Cancel ongoing certificate generation |
+| `/reset-progress`    | POST   | Reset progress for new CSV            |
+| `/download-csv`      | GET    | Download results CSV                  |
+
+### Settings API
+
+| Endpoint               | Method | Description                          |
+| ---------------------- | ------ | ------------------------------------ |
+| `/api/settings`        | GET    | Get current visual settings          |
+| `/api/settings`        | POST   | Save visual settings                 |
+| `/api/templates`       | GET    | List available certificate templates |
+| `/api/fonts`           | GET    | List available fonts                 |
+| `/api/upload-template` | POST   | Upload a new certificate template    |
+| `/api/upload-font`     | POST   | Upload a new font file               |
+| `/api/preview`         | POST   | Generate a preview image             |
 
 ## Development
 
@@ -263,9 +284,9 @@ CLOUDINARY_API_SECRET=your_api_secret
 
 If custom font doesn't load:
 
-- Ensure font file exists at the path specified in `FONT_PATH` (default: `static/fonts/AlexBrush-Regular.ttf`)
-- Check `FONT_PATH` in `config.py`
-- System will automatically fall back to system fonts
+- Upload a font through the web interface or place it in `static/fonts/`
+- Ensure font file is in TTF or OTF format
+- System will automatically fall back to system fonts if the selected font is unavailable
 
 ### CSV Upload Errors
 
@@ -300,9 +321,7 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 
 ## Acknowledgments
 
-- Built with Flask, Pillow, and ReportLab
-- Storage provided by Cloudinary, Catbox, file.io, and tmpfiles
-- Font: Alex Brush by TypeSETit
+- Built with Flask, Pillow, HTML, CSS, and JavaScript.
 
 ---
 
