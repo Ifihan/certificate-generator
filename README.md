@@ -9,14 +9,11 @@
 
 - **Visual Settings Panel**: Customize certificates directly in the browser with live preview
 - **Drag-and-Drop Text Positioning**: Position text on certificates by dragging a marker
-- **Drag-and-Drop CSV Upload**: Upload CSV files by dragging them into the browser
 - **Multiple Storage Providers**: Choose from Cloudinary, Catbox, file.io, or tmpfiles
 - **Progress Tracking**: Automatic progress saving - resume if interrupted
 - **Cancel Generation**: Stop certificate generation mid-process and resume later
 - **CSV Change Detection**: Detects when a different CSV is uploaded
-- **Column Preservation**: All columns from input CSV are preserved in output
 - **Custom Templates & Fonts**: Upload your own certificate templates and fonts
-- **Production Ready**: Error handling, validation, and robust architecture
 
 ## Quick Start
 
