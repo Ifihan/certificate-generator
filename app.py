@@ -1,12 +1,17 @@
 import os
 import csv
 import hashlib
+import logging
 from threading import Lock
 from flask import Flask, render_template, jsonify, send_file, request
 from werkzeug.utils import secure_filename
 from certificate_generator import CertificateGenerator
 from pdf_uploader import PDFUploader
 import config
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = config.MAX_UPLOAD_SIZE
@@ -108,7 +113,8 @@ def upload_csv():
             }
         )
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.exception("Error uploading CSV")
+        return jsonify({"success": False, "error": "An internal error occurred while uploading the CSV"}), 500
 
 
 @app.route("/check-progress")
@@ -153,7 +159,8 @@ def reset_progress():
             os.remove(config.GENERATED_CSV)
         return jsonify({"success": True, "message": "Progress reset"})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.exception("Error resetting progress")
+        return jsonify({"success": False, "error": "An internal error occurred while resetting progress"}), 500
 
 
 @app.route("/cancel-generation", methods=["POST"])
@@ -243,7 +250,8 @@ def generate_certificates():
             }
         )
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.exception("Error generating certificates")
+        return jsonify({"success": False, "error": "An internal error occurred while generating certificates"}), 500
     finally:
         is_generating = False
         cancel_requested = False
@@ -292,7 +300,8 @@ def save_settings():
         config.save_settings(updated_settings)
         return jsonify({"success": True, "settings": updated_settings})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.exception("Error saving settings")
+        return jsonify({"success": False, "error": "An internal error occurred while saving settings"}), 500
 
 
 @app.route("/api/templates", methods=["GET"])
@@ -351,7 +360,8 @@ def upload_template():
             "message": f"Template '{filename}' uploaded successfully"
         })
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.exception("Error uploading template")
+        return jsonify({"success": False, "error": "An internal error occurred while uploading the template"}), 500
 
 
 @app.route("/api/upload-font", methods=["POST"])
@@ -381,7 +391,8 @@ def upload_font():
             "message": f"Font '{filename}' uploaded successfully"
         })
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.exception("Error uploading font")
+        return jsonify({"success": False, "error": "An internal error occurred while uploading the font"}), 500
 
 
 @app.route("/api/preview", methods=["POST"])
@@ -400,9 +411,11 @@ def generate_preview():
 
         return jsonify({"success": True, "preview": preview})
     except FileNotFoundError as e:
-        return jsonify({"success": False, "error": str(e)}), 404
+        logger.exception("File not found while generating preview")
+        return jsonify({"success": False, "error": "Required file not found for preview generation"}), 404
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.exception("Error generating preview")
+        return jsonify({"success": False, "error": "An internal error occurred while generating the preview"}), 500
 
 
 if __name__ == "__main__":
