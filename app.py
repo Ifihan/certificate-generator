@@ -96,8 +96,9 @@ def upload_csv():
         try:
             rows, fieldnames = read_csv_data(filepath)
         except ValueError as e:
+            logger.warning("CSV validation error: %s", e)
             os.remove(filepath)
-            return jsonify({"success": False, "error": str(e)}), 400
+            return jsonify({"success": False, "error": f"CSV must contain '{config.NAME_COLUMN}' column"}), 400
 
         csv_hash = get_csv_hash(filepath)
         processed, _, existing_hash = read_generated_csv()
@@ -227,7 +228,8 @@ def generate_certificates():
                 result = {**row, "url": url, "status": "success"}
                 print(f"✓ {name} -> {url}")
             except Exception as e:
-                result = {**row, "url": "", "status": "error", "error": str(e)}
+                logger.exception("Error generating certificate for %s", name)
+                result = {**row, "url": "", "status": "error", "error": "Certificate generation failed"}
                 print(f"✗ {name}: {e}")
 
             try:
