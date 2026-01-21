@@ -1,0 +1,60 @@
+name: Question
+description: Ask a question about the project
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your interest in the project! We're happy to help answer your question.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: What's your question?
+      description: Please describe your question in detail
+      placeholder: I would like to know...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Question Category
+      description: What is your question about?
+      options:
+        - Installation & Setup
+        - Certificate Generation
+        - Template Customization
+        - CSV File Format
+        - Cloudinary Integration
+        - PDF Upload & Export
+        - General Usage
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Provide any additional context, what you've already tried, or relevant documentation you've consulted
+      placeholder: |
+        - I've already tried...
+        - I'm using this for...
+        - I checked the documentation at...
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before asking
+      description: Please confirm you've done the following
+      options:
+        - label: I have read the README.md documentation
+          required: true
+        - label: I have searched existing issues to see if my question has been answered
+          required: true
+        - label: This is a question and not a bug report or feature request
+          required: true
