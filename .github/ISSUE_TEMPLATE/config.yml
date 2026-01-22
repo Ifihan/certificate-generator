@@ -1,11 +1,8 @@
 blank_issues_enabled: true
 contact_links:
   - name: Documentation
-    url: https://github.com/Ifihan/icair-certificate/blob/main/README.md
+    url: https://github.com/Ifihan/certificate-generator/blob/main/README.md
     about: Check out the README for setup instructions and usage guide
-  - name: Discussions
-    url: https://github.com/Ifihan/icair-certificate/discussions
-    about: Join the community discussions for general questions and ideas
   - name: Contributing Guide
-    url: https://github.com/Ifihan/icair-certificate/blob/main/CONTRIBUTING.md
+    url: https://github.com/Ifihan/certificate-generator/blob/main/CONTRIBUTING.md
     about: Learn how to contribute to the project
