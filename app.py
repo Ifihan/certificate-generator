@@ -321,7 +321,9 @@ def send_test_email():
             return jsonify({"success": False, "message": "Invalid data provided", "errors": errors}), 400
         
         email_settings = config.load_email_config()
-        email_service = EmailService(config=email_settings)
+        email_service = EmailService(
+            config=email_settings, raise_exception=True, connection_timeout=10, logger=logger
+        )
         email_service.send_email(
             subject=data.get("subject") or "Test Email",
             body=data.get("body") or "This is a test email",
