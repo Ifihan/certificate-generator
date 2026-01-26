@@ -52,13 +52,6 @@ class EmailService:
 
         required_key_exc_msg = "Invalid Email Configuration. {} was not provided."
         for key in required_settings:
-            if key == "smtp_from_email":
-                if not self.validate_email_address(email=init_config[key], check_deliverability=True):
-                    self._init_error = "Invalid Email Configuration. Invalid from email address."
-                    if raise_exception:
-                        raise Exception(f"Email Service Initialization Error: {self._init_error}")
-                    break
-                
             if not init_config[key]:
                 self._init_error = required_key_exc_msg.format(key)
                 if raise_exception:
@@ -66,6 +59,12 @@ class EmailService:
                 break
             else:
                 self._smtp_config[key] = init_config[key]
+
+            if key == "smtp_from_email" and not self.validate_email_address(email=init_config[key], check_deliverability=True):
+                self._init_error = "Invalid Email Configuration. Invalid from email address."
+                if raise_exception:
+                    raise Exception(f"Email Service Initialization Error: {self._init_error}")
+                break
 
         for setting, default in optional_settings:
             if not init_config.get(setting):
