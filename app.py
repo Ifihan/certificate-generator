@@ -7,6 +7,8 @@ from flask import Flask, render_template, jsonify, send_file, request
 from werkzeug.utils import secure_filename
 from certificate_generator import CertificateGenerator
 from pdf_uploader import PDFUploader
+from services.email import EmailService
+from schema import EmailSettingsSchema, SendTestEmailSchema
 import config
 
 # Configure logging
@@ -276,6 +278,61 @@ def get_settings():
     """Get current visual settings"""
     settings = config.load_settings()
     return jsonify(settings)
+
+
+@app.get("/api/email-settings")
+def get_email_settings():
+    settings = config.load_settings()
+    email_config = (settings.get('email_config') or {}).copy()
+    if email_config.get('smtp_password'):
+        email_config['smtp_password'] = "********"
+
+    return jsonify(email_config)
+
+
+@app.post("/api/email-settings")
+def save_email_settings():
+    try:
+        data = request.get_json()
+        email_settings_schema = EmailSettingsSchema()
+        errors = email_settings_schema.validate(data=data)
+        if errors:
+            return jsonify({"success": False, "message": "Invalid Email Settings", "errors": errors}), 400
+
+        settings = config.load_settings()
+        current_email_settings = settings.get('email_config') or {}
+        updated_email_settings = {**current_email_settings, **data}
+
+        full_updated_settings = {**settings, **{"email_config": updated_email_settings}}
+        config.save_settings(full_updated_settings)
+        return jsonify({"success": True, "message": "successfully updated email settings"})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": "An internal error occurred while saving settings"}), 500
+
+
+@app.post("/api/test-email")
+def send_test_email():
+    try:
+        data = request.get_json()
+        test_email_schema = SendTestEmailSchema()
+        errors = test_email_schema.validate(data=data)
+        if errors:
+            return jsonify({"success": False, "message": "Invalid data provided", "errors": errors}), 400
+        
+        email_settings = config.load_email_config()
+        email_service = EmailService(config=email_settings)
+        email_service.send_email(
+            subject=data.get("subject") or "Test Email",
+            body=data.get("body") or "This is a test email",
+            recipient_email=data.get("recipient_email")
+        )
+    
+        return jsonify({"success": True, "message": "Test email sent successfully"})
+    
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
 
 
 @app.route("/api/settings", methods=["POST"])

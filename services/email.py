@@ -1,5 +1,5 @@
 from smtplib import SMTP
-from config import EMAIL_CONFIG
+from config import load_email_config
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from functools import wraps
@@ -15,7 +15,7 @@ def initialization_required(f):
         
         if (not instance._initialized or not instance._smtp_config 
             or not instance._smtp_client_session):
-            raise Exception("Invalid Email Service Configuration. Valid Initialization config is required")
+            raise Exception(f"Invalid Email Service Configuration. Valid Initialization config is required. Error: {instance._init_error}")
         return f(*args, **kwargs)
     return validate_email_service_initialization
 
@@ -26,9 +26,11 @@ class EmailService:
     _smtp_config = {}
     _smtp_client_session = None
 
-    def __init__(self, raise_exception=False):
+    def __init__(self, config=None, raise_exception=False):
         self._initialized = True
         self._init_error = ""
+        init_config = config or load_email_config()
+
         required_settings = [
             "smtp_host",
             "smtp_port",
@@ -46,19 +48,19 @@ class EmailService:
 
         required_key_exc_msg = "Invalid Email Configuration. {} was not provided."
         for key in required_settings:
-            if not EMAIL_CONFIG[key]:
+            if not init_config[key]:
                 self._init_error = required_key_exc_msg.format(key)
                 if raise_exception:
                     raise Exception(f"Email Service Initialization Error: {self._init_error}")
                 break
             else:
-                self._smtp_config[key] = EMAIL_CONFIG[key]
+                self._smtp_config[key] = init_config[key]
 
         for setting, default in optional_settings:
-            if not EMAIL_CONFIG.get(setting):
+            if not init_config.get(setting):
                 self._smtp_config[setting] = default
             else:
-                self._smtp_config[setting] = EMAIL_CONFIG[setting]
+                self._smtp_config[setting] = init_config[setting]
         
         # call test connection to validate smtp configuration
         try:
