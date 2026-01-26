@@ -129,3 +129,18 @@ def validate_setup():
         raise ValueError(error_msg)
 
     return True
+
+IS_EMAIL_ENABLED = os.getenv("ENABLE_EMAIL", "False").lower() == "true"
+EMAIL_COLUMN_NAME = os.getenv("EMAIL_COLUMN_NAME", "email")
+
+EMAIL_CONFIG = {
+    "smtp_host": os.getenv("SMTP_HOST"),
+    "smtp_port": os.getenv("SMTP_PORT"),
+    "smtp_username": os.getenv("SMTP_USERNAME"),
+    "smtp_password": os.getenv("SMTP_PASSWORD"),
+    "smtp_use_tls": os.getenv("SMTP_USE_TLS", "False").lower() == "true",
+    "smtp_from_email": os.getenv("SMTP_FROM_EMAIL"),
+    "smtp_from_name": os.getenv("SMTP_FROM_NAME"),
+    "email_subject": os.getenv("EMAIL_SUBJECT"),
+    "email_template": os.getenv("EMAIL_TEMPLATE"),
+}
