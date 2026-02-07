@@ -129,3 +129,23 @@ def validate_setup():
         raise ValueError(error_msg)
 
     return True
+
+
+def load_email_config():
+    settings = load_settings()
+    _email_settings = settings.get("email_config") or {}
+    return {
+        "smtp_host": _email_settings.get("smtp_host"),
+        "smtp_port": _email_settings.get("smtp_port"),
+        "smtp_username": _email_settings.get("smtp_username"),
+        "smtp_password": _email_settings.get("smtp_password"),
+        "smtp_use_tls": str(_email_settings.get("smtp_use_tls", "False")).lower() == "true",
+        "smtp_from_email": _email_settings.get("smtp_from_email"),
+        "smtp_from_name": _email_settings.get("smtp_from_name"),
+        "email_subject": _email_settings.get("email_subject"),
+        "email_template": _email_settings.get("email_template"),
+        "is_email_enabled": str(_email_settings.get("enable_email", "False")).lower() == "true",
+        "email_column_name": _email_settings.get("email_column_name", "email"),
+    }
+
+EMAIL_CONFIG = load_email_config()
